@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dashboard-institution-api
+  name: notification-management-api
   namespace: prakarsa
-  labels: { app: dashboard-institution-api }
+  labels: { app: notification-management-api }
 spec:
   replicas: 1
-  selector: { matchLabels: { app: dashboard-institution-api } }
+  selector: { matchLabels: { app: notification-management-api } }
   template:
-    metadata: { labels: { app: dashboard-institution-api } }
+    metadata: { labels: { app: notification-management-api } }
     spec:
       containers:
-        - name: dashboard-institution-api
-          image: dashboard-institution-api:1.0   # image lokal yang kamu import ke k3s
+        - name: notification-management-api
+          image: notification-management-api:1.0   # image lokal yang kamu import ke k3s
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -30,4 +30,4 @@ spec:
             limits:   { cpu: "500m", memory: "256Mi" }
           # (opsional) ENV dari Secret .env
           envFrom:
-             - secretRef: { name: dashboard-institution-api-env }
+             - secretRef: { name: notification-management-api-env }

@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: dashboard-institution-api
+  name: notification-management-api
   namespace: prakarsa
   annotations:
     kubernetes.io/ingress.class: traefik
@@ -9,13 +9,13 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: dashboard-institution.103.171.85.49.nip.io   # ganti IP publik kamu
+    - host: notification-management.103.171.85.49.nip.io   # ganti IP publik kamu
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: dashboard-institution-api
+                name: notification-management-api
                 port:
                   number: 80

@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: dashboard-institution-api
+  name: notification-management-api
   namespace: prakarsa
 spec:
   type: ClusterIP
-  selector: { app: dashboard-institution-api }
+  selector: { app: notification-management-api }
   ports:
     - name: http
       port: 80
