@@ -1,11 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: notification-management-api
+  name: notification-management
   namespace: prakarsa
+  labels:
+    app: notification-management
 spec:
   type: ClusterIP
-  selector: { app: notification-management-api }
+  selector:
+    app: notification-management
   ports:
     - name: http
       port: 80
