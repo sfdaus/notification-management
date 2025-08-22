@@ -1,8 +1,9 @@
 package request
 
 import (
-	validation "github.com/go-ozzo/ozzo-validation"
 	"prakarsa-app/utils"
+
+	validation "github.com/go-ozzo/ozzo-validation"
 )
 
 // CreateNotificationReq represent create request body
@@ -11,11 +12,11 @@ type CreateNotificationReq struct {
 	Type          string `json:"type"`
 	ReferenceType string `json:"reference_type"`
 	ReferenceID   string `json:"reference_id"`
-	//SourceUserID  string `json:"source_user_id"`
-	Title     string `json:"title"`
-	Message   string `json:"message"`
-	ActionURL string `json:"action_url"`
-	Priority  string `json:"priority"`
+	SourceUserID  string
+	Title         string `json:"title"`
+	Message       string `json:"message"`
+	ActionURL     string `json:"action_url"`
+	Priority      string `json:"priority"`
 }
 
 func (request CreateNotificationReq) Validate() error {
@@ -25,7 +26,7 @@ func (request CreateNotificationReq) Validate() error {
 		validation.Field(&request.Type, validation.Required, validation.In(utils.AllowedNotificationType...).Error(utils.ValidationOneOfMsg("type", utils.AllowedNotificationType))),
 		validation.Field(&request.ReferenceType, validation.Required, validation.In(utils.AllowedNotificationReferenceType...)),
 		validation.Field(&request.ReferenceID, validation.Required),
-		//validation.Field(&request.SourceUserID, validation.Required),
+		validation.Field(&request.SourceUserID, validation.Required),
 		validation.Field(&request.Title, validation.Required),
 		validation.Field(&request.Message, validation.Required),
 		validation.Field(&request.Priority, validation.Required, validation.In(utils.AllowedNotificationPriority...)),
@@ -38,24 +39,28 @@ type UpdateNotificationReq struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	IsActive    *bool  `json:"is_active"`
+	UserID      string
 }
 
 func (request UpdateNotificationReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
 // Delete request body
 type DeleteNotificationReq struct {
-	ID string `param:"id"`
+	ID     string `param:"id"`
+	UserID string
 }
 
 func (request DeleteNotificationReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
@@ -89,11 +94,14 @@ func (request GetDetailNotificationReq) Validate() error {
 
 // Mark Read request body
 type MarkReadNotificationReq struct {
-	ID string `param:"id"`
+	ID     string `param:"id"`
+	UserID string
 }
 
 func (request MarkReadNotificationReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
+		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }

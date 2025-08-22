@@ -35,7 +35,7 @@ func (u *NotificationUsecase) Create(c context.Context, request *request.CreateN
 	// Create Payload
 	notificationID := uuid.NewString()
 	t := true
-	srcID := "TODO_user_id"
+	srcID := request.SourceUserID
 	notificationPayload := &domain.Notification{
 		ID:            notificationID,
 		UserID:        request.UserID,
@@ -49,7 +49,7 @@ func (u *NotificationUsecase) Create(c context.Context, request *request.CreateN
 		Priority:      utils.NotificationPriority[request.Priority],
 		IsRead:        false,
 		IsActive:      &t,
-		CreatedBy:     "TODO_created_by",
+		CreatedBy:     request.SourceUserID,
 		CreatedAt:     time.Now().Unix(),
 	}
 
@@ -67,7 +67,7 @@ func (u *NotificationUsecase) Update(c context.Context, request *request.UpdateN
 	// Update Payload
 	notificationPayload := &domain.Notification{
 		ID:        request.ID,
-		UpdatedBy: "TODO_updated_by",
+		UpdatedBy: request.UserID,
 		UpdatedAt: time.Now().Unix(),
 	}
 
@@ -112,9 +112,9 @@ func (u *NotificationUsecase) MarkRead(c context.Context, request *request.MarkR
 
 	var notification = &domain.Notification{
 		ID:        request.ID,
-		UserID:    "TODO_user_id",
+		UserID:    request.UserID,
 		UpdatedAt: time.Now().Unix(),
-		UpdatedBy: "TODO_updated_by",
+		UpdatedBy: request.UserID,
 	}
 
 	err = u.notificationRepo.MarkRead(ctx, notification)
