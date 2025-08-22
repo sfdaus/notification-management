@@ -1,14 +1,15 @@
 package http
 
 import (
-	validation "github.com/go-ozzo/ozzo-validation"
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"prakarsa-app/delivery/middleware"
 	"prakarsa-app/domain"
 	"prakarsa-app/transport/request"
 	"prakarsa-app/utils"
 	"strings"
+
+	validation "github.com/go-ozzo/ozzo-validation"
+	"github.com/labstack/echo/v4"
 )
 
 type NotificationHandler struct {
@@ -38,6 +39,7 @@ func (h *NotificationHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.SourceUserID = c.Request().Header.Get("x-user-id")
 	req.Type = strings.ToLower(req.Type)
 	req.ReferenceType = strings.ToLower(req.ReferenceType)
 	req.Priority = strings.ToLower(req.Priority)
@@ -66,6 +68,8 @@ func (h *NotificationHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -87,6 +91,8 @@ func (h *NotificationHandler) Delete(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
@@ -161,6 +167,8 @@ func (h *NotificationHandler) MarkRead(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
