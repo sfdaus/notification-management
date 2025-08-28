@@ -39,8 +39,8 @@ func (u *NotificationUsecase) Create(c context.Context, request *request.CreateN
 	notificationPayload := &domain.Notification{
 		ID:            notificationID,
 		UserID:        request.UserID,
-		Type:          utils.NotificationType[request.Type],
-		ReferenceType: utils.NotificationReferenceType[request.ReferenceType],
+		Type:          request.Type,
+		ReferenceType: request.ReferenceType,
 		ReferenceID:   request.ReferenceID,
 		SourceUserID:  &srcID,
 		Title:         request.Title,
