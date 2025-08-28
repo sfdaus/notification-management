@@ -40,8 +40,6 @@ func (h *NotificationHandler) Create(c echo.Context) error {
 	}
 
 	req.SourceUserID = c.Request().Header.Get("x-user-id")
-	req.Type = strings.ToLower(req.Type)
-	req.ReferenceType = strings.ToLower(req.ReferenceType)
 	req.Priority = strings.ToLower(req.Priority)
 
 	if err := req.Validate(); err != nil {

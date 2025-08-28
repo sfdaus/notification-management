@@ -23,8 +23,8 @@ func (request CreateNotificationReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.UserID, validation.Required),
-		validation.Field(&request.Type, validation.Required, validation.In(utils.AllowedNotificationType...).Error(utils.ValidationOneOfMsg("type", utils.AllowedNotificationType))),
-		validation.Field(&request.ReferenceType, validation.Required, validation.In(utils.AllowedNotificationReferenceType...)),
+		validation.Field(&request.Type, validation.Required),
+		validation.Field(&request.ReferenceType, validation.Required),
 		validation.Field(&request.ReferenceID, validation.Required),
 		validation.Field(&request.SourceUserID, validation.Required),
 		validation.Field(&request.Title, validation.Required),
