@@ -71,24 +71,27 @@ type GetListNotificationReq struct {
 	Type     string `query:"type"`
 	IsRead   *bool  `query:"is_read"`
 	IsActive *bool  `query:"is_active"`
-	UserID   string `query:"user_id"`
+	UserID   string
 }
 
 func (request GetListNotificationReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
 // GetDetail request body
 type GetDetailNotificationReq struct {
-	ID string `param:"id"`
+	ID     string `param:"id"`
+	UserID string
 }
 
 func (request GetDetailNotificationReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
@@ -102,6 +105,18 @@ func (request MarkReadNotificationReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}
+
+// Mark Read All request body
+type MarkReadAllNotificationReq struct {
+	UserID string
+}
+
+func (request MarkReadAllNotificationReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
 		validation.Field(&request.UserID, validation.Required),
 	)
 }
