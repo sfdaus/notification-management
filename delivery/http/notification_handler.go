@@ -26,6 +26,7 @@ func NewNotificationHandler(e *echo.Echo, middleware *middleware.Middleware, not
 	apiV1.POST("/notifications", handler.Create)
 	apiV1.PATCH("/notifications/:id", handler.Update)
 	apiV1.PATCH("/notifications/:id/read", handler.MarkRead)
+	apiV1.PATCH("/notifications/read-all", handler.MarkReadAll)
 	apiV1.DELETE("/notifications/:id", handler.Delete)
 	apiV1.GET("/notifications", handler.GetList)
 	apiV1.GET("/notifications/:id", handler.GetDetail)
@@ -117,6 +118,8 @@ func (h *NotificationHandler) GetList(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -142,6 +145,8 @@ func (h *NotificationHandler) GetDetail(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
@@ -178,6 +183,30 @@ func (h *NotificationHandler) MarkRead(c echo.Context) error {
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Notification successfully marked as read",
+		})
+	}
+}
+
+func (h *NotificationHandler) MarkReadAll(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req request.MarkReadAllNotificationReq
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if err := h.NotificationUC.MarkReadAll(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpError(err))
+	} else {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "All notifications successfully marked as read",
 		})
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"prakarsa-app/domain"
+	"prakarsa-app/entity"
 	"prakarsa-app/transport/request"
 	"prakarsa-app/transport/response"
 	"prakarsa-app/utils"
@@ -22,7 +22,7 @@ func NewPgsqlNotificationRepository(db *sql.DB) *pgsqlNotificationRepository {
 	}
 }
 
-func (r *pgsqlNotificationRepository) Create(ctx context.Context, notification *domain.Notification) (err error) {
+func (r *pgsqlNotificationRepository) Create(ctx context.Context, notification *entity.Notification) (err error) {
 	query := `INSERT INTO notifications (
 				id, user_id, type, reference_type, reference_id, source_user_id,
 				title, message, action_url, priority,
@@ -57,7 +57,7 @@ func (r *pgsqlNotificationRepository) Create(ctx context.Context, notification *
 	return
 }
 
-func (r *pgsqlNotificationRepository) Update(ctx context.Context, notification *domain.Notification) (err error) {
+func (r *pgsqlNotificationRepository) Update(ctx context.Context, notification *entity.Notification) (err error) {
 	// Build dynamic SET clauses from Notification struct
 	sets := []string{}
 	args := []interface{}{}
@@ -108,7 +108,7 @@ func (r *pgsqlNotificationRepository) Update(ctx context.Context, notification *
 	return
 }
 
-func (r *pgsqlNotificationRepository) Delete(ctx context.Context, notification *domain.Notification) (rowsAffected int64, err error) {
+func (r *pgsqlNotificationRepository) Delete(ctx context.Context, notification *entity.Notification) (rowsAffected int64, err error) {
 	query := "DELETE FROM notifications WHERE id = $1"
 	res, err := r.db.ExecContext(ctx, query, notification.ID)
 	if err != nil {
@@ -124,25 +124,43 @@ func (r *pgsqlNotificationRepository) Delete(ctx context.Context, notification *
 }
 
 func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *request.GetListNotificationReq) (res []response.GetListNotificationRes, meta response.MetaRes, err error) {
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// 1. Build WHERE clauses
-	wheres := []string{fmt.Sprintf("user_id = $%d", 1)}
+	wheres := []string{fmt.Sprintf("n.user_id = $%d", 1)}
 	args := []interface{}{request.UserID}
 	idx := 2
 
 	if request.Type != "" {
-		wheres = append(wheres, fmt.Sprintf("name = $%d", idx))
+		wheres = append(wheres, fmt.Sprintf("n.type = $%d", idx))
 		args = append(args, request.Type)
 		idx++
 	}
 
 	if request.IsActive != nil {
-		wheres = append(wheres, fmt.Sprintf("is_active = $%d", idx))
+		wheres = append(wheres, fmt.Sprintf("n.is_active = $%d", idx))
 		args = append(args, request.IsActive)
+		idx++
+	} else {
+		// default only active
+		wheres = append(wheres, fmt.Sprintf("n.is_active = $%d", idx))
+		args = append(args, true)
 		idx++
 	}
 
 	if request.IsRead != nil {
-		wheres = append(wheres, fmt.Sprintf("is_read = $%d", idx))
+		wheres = append(wheres, fmt.Sprintf("n.is_read = $%d", idx))
 		args = append(args, request.IsRead)
 		idx++
 	}
@@ -154,11 +172,11 @@ func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *requ
 
 	// --- 2. Hitung totalCount dulu (tanpa LIMIT/OFFSET) ---
 	countQuery := fmt.Sprintf(
-		"SELECT COUNT(*) FROM notifications %s",
+		"SELECT COUNT(*) FROM notifications n %s",
 		whereSQL,
 	)
 
-	if err = r.db.QueryRowContext(ctx, countQuery, args...).Scan(&meta.TotalData); err != nil {
+	if err = tx.QueryRowContext(ctx, countQuery, args...).Scan(&meta.TotalData); err != nil {
 		return nil, meta, err
 	}
 
@@ -186,16 +204,36 @@ func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *requ
 	// 3. Final query
 	query := fmt.Sprintf(`
         SELECT
-            id, type, title, message, action_url, priority, is_read, read_At,
-            is_active, created_at
-        FROM notifications
+            n.id, n.type, n.reference_type, n.reference_id, n.title, 
+			n.message, n.action_url, n.priority, n.is_read, n.read_at,
+            n.is_active, n.created_at,
+
+			-- profile (1-1)
+			CASE 
+                WHEN p.user_id = $1 THEN 'SYSTEM'
+                ELSE COALESCE(p.name,'')
+            END AS prof_name,
+			CASE 
+                WHEN p.user_id = $1 THEN 'SYSTEM'
+                ELSE COALESCE(p.name_alias,'')
+            END AS prof_name_alias,
+			COALESCE(p.avatar,'') AS prof_avatar,
+		
+			-- institution inside profile
+			COALESCE(i.name,'')  AS prof_inst_name,
+			COALESCE(i.alias,'') AS prof_inst_alias,
+			COALESCE(i.type,'')  AS prof_inst_type
+
+        FROM notifications n
+		LEFT JOIN profiles p ON n.source_user_id = p.user_id
+		LEFT JOIN institutions i ON p.institution_id = i.id
         %s
-        ORDER BY created_at DESC
+        ORDER BY n.created_at DESC
         LIMIT $%d OFFSET $%d
     `, whereSQL, limitPos, offsetPos)
 
 	// 4. Execute
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, meta, err
 	}
@@ -208,6 +246,8 @@ func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *requ
 		if err := rows.Scan(
 			&item.ID,
 			&item.Type,
+			&item.ReferenceType,
+			&item.ReferenceID,
 			&item.Title,
 			&item.Message,
 			&item.ActionURL,
@@ -216,6 +256,12 @@ func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *requ
 			&item.ReadAt,
 			&item.IsActive,
 			&item.CreatedAt,
+			&item.Profile.Name,
+			&item.Profile.NameAlias,
+			&item.Profile.Avatar,
+			&item.Profile.Institution.Name,
+			&item.Profile.Institution.Alias,
+			&item.Profile.Institution.Type,
 		); err != nil {
 			return nil, meta, err
 		}
@@ -226,6 +272,11 @@ func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *requ
 		return nil, meta, errRow
 	}
 
+	// Commit jika semua sukses
+	if err = tx.Commit(); err != nil {
+		return
+	}
+
 	return
 }
 
@@ -233,25 +284,41 @@ func (r *pgsqlNotificationRepository) GetDetail(ctx context.Context, request *re
 
 	const query = `
 					SELECT
-						id, type, title, message, action_url, priority, is_read, read_At,
-						is_active, created_at
-					FROM notifications
-					WHERE id = $1
+						n.id, n.type, n.reference_type, n.reference_id, n.title, 
+						n.message, n.action_url, n.priority, n.is_read, n.read_at,
+						n.is_active, n.created_at, n.updated_at,
+
+						-- profile (1-1)
+						CASE 
+							WHEN p.user_id = $1 THEN 'SYSTEM'
+							ELSE COALESCE(p.name,'')
+						END AS prof_name,
+						CASE 
+							WHEN p.user_id = $1 THEN 'SYSTEM'
+							ELSE COALESCE(p.name_alias,'')
+						END AS prof_name_alias,
+						COALESCE(p.avatar,'') AS prof_avatar,
+					
+						-- institution inside profile
+						COALESCE(i.name,'')  AS prof_inst_name,
+						COALESCE(i.alias,'') AS prof_inst_alias,
+						COALESCE(i.type,'')  AS prof_inst_type
+
+					FROM notifications n
+					LEFT JOIN profiles p ON n.source_user_id = p.user_id
+					LEFT JOIN institutions i ON p.institution_id = i.id
+					WHERE n.id = $1
 					LIMIT 1
 					`
 
 	// 1. QueryRowContext untuk ambil satu baris
 	row := r.db.QueryRowContext(ctx, query, request.ID)
 
-	// 2. Scan kolom ke field di domain.Notification
-	// since created_at is NOT NULL int8:
-	var createdAt int64
-	// updated_at/deleted_at can be NULL, so use NullInt64:
-	var updatedAt sql.NullInt64
-
 	err = row.Scan(
 		&res.ID,
 		&res.Type,
+		&res.ReferenceType,
+		&res.ReferenceID,
 		&res.Title,
 		&res.Message,
 		&res.ActionURL,
@@ -260,6 +327,13 @@ func (r *pgsqlNotificationRepository) GetDetail(ctx context.Context, request *re
 		&res.ReadAt,
 		&res.IsActive,
 		&res.CreatedAt,
+		&res.UpdatedAt,
+		&res.Profile.Name,
+		&res.Profile.NameAlias,
+		&res.Profile.Avatar,
+		&res.Profile.Institution.Name,
+		&res.Profile.Institution.Alias,
+		&res.Profile.Institution.Type,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -268,16 +342,10 @@ func (r *pgsqlNotificationRepository) GetDetail(ctx context.Context, request *re
 		return res, err
 	}
 
-	// assign into your domain fields
-	res.CreatedAt = createdAt
-	if updatedAt.Valid {
-		res.UpdatedAt = updatedAt.Int64
-	}
-
 	return
 }
 
-func (r *pgsqlNotificationRepository) MarkRead(ctx context.Context, notification *domain.Notification) (err error) {
+func (r *pgsqlNotificationRepository) MarkRead(ctx context.Context, notification *entity.Notification) (err error) {
 	const query = `
 		UPDATE notifications
 		SET is_read = TRUE,
@@ -287,6 +355,20 @@ func (r *pgsqlNotificationRepository) MarkRead(ctx context.Context, notification
 		WHERE id = $1 AND is_active = TRUE AND user_id = $4;
 	`
 	_, err = r.db.ExecContext(ctx, query, notification.ID, notification.UpdatedBy, notification.UpdatedAt, notification.UserID)
+
+	return
+}
+
+func (r *pgsqlNotificationRepository) MarkReadAll(ctx context.Context, notifications *entity.Notification) (err error) {
+	const query = `
+		UPDATE notifications
+		SET is_read = TRUE,
+		    read_at = COALESCE(read_at, $2),
+		    updated_at = $2,
+		    updated_by = $1
+		WHERE is_active = TRUE AND user_id = $3;
+	`
+	_, err = r.db.ExecContext(ctx, query, notifications.UpdatedBy, notifications.UpdatedAt, notifications.UserID)
 
 	return
 }

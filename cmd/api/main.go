@@ -12,13 +12,15 @@ import (
 	"prakarsa-app/utils/jwt"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	echoSwagger "github.com/swaggo/echo-swagger"
 	httpDelivery "prakarsa-app/delivery/http"
 	appMiddleware "prakarsa-app/delivery/middleware"
 	pgsqlRepository "prakarsa-app/repository/pgsql"
 	redisRepository "prakarsa-app/repository/redis"
+	s3Repository "prakarsa-app/repository/s3"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
 // @title Go Boilerplate
@@ -38,16 +40,26 @@ func main() {
 	cacheInstance, err := datastore.NewCache(configApp.CacheURL)
 	utils.PanicIfNeeded(err)
 
+	s3Instance, pub, err := datastore.NewObjectStorageClient(datastore.S3Options{
+		Endpoint:     configApp.S3Endpoint,
+		AccessKey:    configApp.S3AccessKey,
+		SecretKey:    configApp.S3SecretKey,
+		UseSSL:       configApp.S3UseSSL,
+		PublicDomain: configApp.S3PublicDomain,
+	})
+	utils.PanicIfNeeded(err)
+
 	// Setup repository
 	redisRepo := redisRepository.NewRedisRepository(cacheInstance)
 	notificationRepo := pgsqlRepository.NewPgsqlNotificationRepository(dbInstance)
+	s3Repo := s3Repository.NewS3Repository(s3Instance, pub)
 
 	// Setup Service
 	jwtSvc := jwt.NewJWTService(configApp.JWTSecretKey)
 
 	// Setup usecase
 	ctxTimeout := time.Duration(configApp.ContextTimeout) * time.Second
-	notificationUC := usecase.NewNotificationUsecase(notificationRepo, redisRepo, ctxTimeout)
+	notificationUC := usecase.NewNotificationUsecase(notificationRepo, redisRepo, s3Repo, ctxTimeout)
 
 	// Setup app middleware
 	appMiddleware := appMiddleware.NewMiddleware(jwtSvc)
