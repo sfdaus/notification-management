@@ -130,10 +130,8 @@ func (h *NotificationHandler) GetList(c echo.Context) error {
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Notification successfully retrieved",
-			"data": map[string]interface{}{
-				"data": res,
-				"meta": meta,
-			},
+			"data":    res,
+			"meta":    meta,
 		})
 	}
 }

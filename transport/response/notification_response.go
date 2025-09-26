@@ -21,6 +21,8 @@ type GetListNotificationRes struct {
 	ReadAt        *int64         `json:"read_at"`
 	IsActive      *bool          `json:"is_active"`
 	CreatedAt     int64          `json:"created_at"`
+
+	Context interface{} `json:"context,omitempty"`
 }
 
 // Get Detail Response
@@ -39,4 +41,13 @@ type GetDetailNotificationRes struct {
 	IsActive      *bool          `json:"is_active"`
 	CreatedAt     int64          `json:"created_at"`
 	UpdatedAt     *int64         `json:"updated_at"`
+
+	Context interface{} `json:"context,omitempty"`
+}
+
+// Context Thread Application
+type ThreadApplicationContext struct {
+	ThreadID            string `json:"thread_id"`
+	ThreadPartnerTypeID string `json:"thread_partner_type_id"`
+	Status              string `json:"status"`
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"prakarsa-app/entity"
 	"prakarsa-app/transport/request"
 	"prakarsa-app/transport/response"
@@ -240,6 +241,7 @@ func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *requ
 	defer rows.Close()
 
 	// 5. Scan results
+	var threadApplicationIDS []string
 	for rows.Next() {
 		var item response.GetListNotificationRes
 
@@ -267,9 +269,50 @@ func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *requ
 		}
 
 		res = append(res, item)
+
+		// Get Context
+		if item.ReferenceType == utils.NotificationReferenceType["THREAD_APPLICATION"] {
+			threadApplicationIDS = append(threadApplicationIDS, item.ReferenceID)
+		}
 	}
 	if errRow := rows.Err(); errRow != nil {
 		return nil, meta, errRow
+	}
+
+	/*
+		Get Context
+	*/
+
+	// Context Thread Applications
+	var threadApplicationContextMap map[string]response.ThreadApplicationContext
+	if len(threadApplicationIDS) > 0 {
+		threadApplicationContextMap = make(map[string]response.ThreadApplicationContext)
+
+		rows, err := tx.QueryContext(ctx, `SELECT id,thread_id,thread_partner_type_id,status FROM thread_partner_applications WHERE id = ANY($1)`, pq.Array(threadApplicationIDS))
+		if err != nil {
+			return nil, meta, err
+		}
+
+		for rows.Next() {
+			var id string
+			var item response.ThreadApplicationContext
+
+			if err := rows.Scan(
+				&id,
+				&item.ThreadID,
+				&item.ThreadPartnerTypeID,
+				&item.Status,
+			); err != nil {
+				return nil, meta, err
+			}
+
+			threadApplicationContextMap[id] = item
+		}
+
+		if errRow := rows.Err(); errRow != nil {
+			return nil, meta, errRow
+		}
+
 	}
 
 	// Commit jika semua sukses
@@ -277,10 +320,32 @@ func (r *pgsqlNotificationRepository) GetList(ctx context.Context, request *requ
 		return
 	}
 
+	// Response
+	for i, rs := range res {
+		switch res[i].ReferenceType {
+		case utils.NotificationReferenceType["THREAD_APPLICATION"]:
+			if len(threadApplicationContextMap) > 0 {
+				res[i].Context = threadApplicationContextMap[rs.ReferenceID]
+			}
+		}
+	}
+
 	return
 }
 
 func (r *pgsqlNotificationRepository) GetDetail(ctx context.Context, request *request.GetDetailNotificationReq) (res response.GetDetailNotificationRes, err error) {
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
 	const query = `
 					SELECT
@@ -312,7 +377,7 @@ func (r *pgsqlNotificationRepository) GetDetail(ctx context.Context, request *re
 					`
 
 	// 1. QueryRowContext untuk ambil satu baris
-	row := r.db.QueryRowContext(ctx, query, request.ID)
+	row := tx.QueryRowContext(ctx, query, request.ID)
 
 	err = row.Scan(
 		&res.ID,
@@ -340,6 +405,31 @@ func (r *pgsqlNotificationRepository) GetDetail(ctx context.Context, request *re
 			return res, utils.NewNotFoundError("notification not found")
 		}
 		return res, err
+	}
+
+	// Get Context
+	if res.ReferenceType == utils.NotificationReferenceType["THREAD_APPLICATION"] {
+		row = tx.QueryRowContext(ctx, `SELECT thread_id,thread_partner_type_id,status FROM thread_partner_applications WHERE id = $1`, res.ReferenceID)
+		if err != nil {
+			return res, err
+		}
+
+		var item response.ThreadApplicationContext
+		err = row.Scan(
+			&item.ThreadID,
+			&item.ThreadPartnerTypeID,
+			&item.Status,
+		)
+		if err != nil {
+			return res, err
+		}
+
+		res.Context = item
+	}
+
+	// Commit jika semua sukses
+	if err = tx.Commit(); err != nil {
+		return
 	}
 
 	return

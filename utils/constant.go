@@ -11,9 +11,7 @@ var NotificationType = map[string]string{
 }
 
 var NotificationReferenceType = map[string]string{
-	"thread":  "THREAD",
-	"comment": "COMMENT",
-	"mention": "MENTION",
+	"THREAD_APPLICATION": "THREAD_APPLICATION",
 }
 
 var NotificationPriority = map[string]int32{
