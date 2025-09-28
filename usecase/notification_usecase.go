@@ -104,7 +104,7 @@ func (u *NotificationUsecase) GetList(c context.Context, request *request.GetLis
 
 	// Get S3 Signed URL for each profile avatar
 	for i, notif := range res {
-		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, notif.Profile.Avatar, true, time.Duration(24*time.Hour))
+		res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, notif.Profile.Avatar, false, time.Duration(24*time.Hour))
 		if err != nil {
 			return res, meta, err
 		}
@@ -120,7 +120,7 @@ func (u *NotificationUsecase) GetDetail(c context.Context, request *request.GetD
 	res, err = u.notificationRepo.GetDetail(ctx, request)
 
 	// Get S3 Signed URL for profile avatar
-	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, res.Profile.Avatar, true, time.Duration(24*time.Hour))
+	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, res.Profile.Avatar, false, time.Duration(24*time.Hour))
 	if err != nil {
 		return res, err
 	}
