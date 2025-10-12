@@ -27,8 +27,6 @@ func (request CreateNotificationReq) Validate() error {
 		validation.Field(&request.ReferenceType, validation.Required),
 		validation.Field(&request.ReferenceID, validation.Required),
 		validation.Field(&request.SourceUserID, validation.Required),
-		validation.Field(&request.Title, validation.Required),
-		validation.Field(&request.Message, validation.Required),
 		validation.Field(&request.Priority, validation.Required, validation.In(utils.AllowedNotificationPriority...)),
 	)
 }
